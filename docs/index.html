@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoxMidi: voice to MIDI, free and open source</title>
+<meta name="description" content="VoxMidi turns singing, humming and beatboxing into live MIDI notes, pitch bend, chords and drum hits. A free, open-source plugin for FL Studio on Windows and Mac.">
+<meta property="og:title" content="VoxMidi: voice to MIDI, free and open source">
+<meta property="og:description" content="Sing, hum or beatbox into a mic and play any synth. Free, open-source VST3 plugin.">
+<meta name="theme-color" content="#f2f4fa">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f2f4fa'/%3E%3Crect x='6' y='15' width='13' height='7' rx='2' fill='%232f3fe0'/%3E%3Cpath d='M3 18 C8 10 12 22 17 15 S25 8 29 11' fill='none' stroke='%23e0245e' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f2f4fa;
+    --surface: #ffffff;
+    --ink: #121a35;
+    --muted: #4f5877;
+    --rule: #d9dfee;
+    --row-black: #e6e9f4;
+    --voice: #e0245e;      /* what you sang */
+    --midi: #2f3fe0;       /* what the plugin plays */
+    --on-midi: #ffffff;
+    --expr: #7a3df0;       /* expression: bend, vowels */
+    --perc: #d4620a;       /* drums */
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --text: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0e1325;
+      --surface: #161d36;
+      --ink: #edf0fb;
+      --muted: #a2abcb;
+      --rule: #29325a;
+      --row-black: #131a31;
+      --voice: #ff5c8a;
+      --midi: #8793ff;
+      --on-midi: #0e1325;
+      --expr: #a98bff;
+      --perc: #ff9d4d;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1.125rem/1.6 var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--midi); text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--voice); outline-offset: 3px; border-radius: 4px; }
+  .wrap { width: min(1120px, 100% - 2 * clamp(16px, 4vw, 40px)); margin-inline: auto; }
+  h1, h2, h3 { font-family: var(--display); margin: 0; letter-spacing: -0.015em; }
+
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+  .mark { font: 800 1.4rem/1 var(--display); font-stretch: 80%; letter-spacing: -0.03em; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
+  .mark svg { width: 30px; height: 30px; }
+  .top nav { display: flex; gap: clamp(12px, 3vw, 28px); flex-wrap: wrap; justify-content: flex-end; font: 500 0.98rem/1 var(--display); }
+  .top nav a { color: var(--ink); text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
+  .top nav a:hover { border-bottom-color: var(--midi); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: clamp(8px, 2vw, 24px) 0 clamp(40px, 6vw, 72px); }
+  .hero h1 {
+    font-weight: 800; font-stretch: 78%;
+    font-size: clamp(2.6rem, 7.2vw, 5rem);
+    line-height: 0.95; letter-spacing: -0.035em;
+    max-width: 13em; text-wrap: balance;
+  }
+  .lede { max-width: 36rem; margin: 1em 0 0; font-size: clamp(1.15rem, 2.1vw, 1.35rem); color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 1.3rem; }
+  .btn {
+    font: 600 1.02rem/1 var(--display); text-decoration: none;
+    padding: 14px 22px; border-radius: 999px; border: 2px solid var(--midi);
+    display: inline-flex; align-items: center; justify-content: center; min-height: 48px;
+  }
+  .btn.primary { background: var(--midi); color: var(--on-midi); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { color: var(--midi); background: transparent; }
+  .btn.ghost:hover { background: color-mix(in srgb, var(--midi) 10%, transparent); }
+
+  /* ---------- the piano roll ---------- */
+  .roll { margin: clamp(24px, 3.5vw, 36px) 0 0; }
+  .roll-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 12px; }
+  .snap { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; font: 600 0.98rem/1 var(--display); border: 0; padding: 0; margin: 0; }
+  .snap legend { padding: 0; float: left; margin-right: 12px; color: var(--muted); font-weight: 500; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--rule); border-radius: 999px; padding: 3px; }
+  .seg label { position: relative; }
+  .seg input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
+  .seg span { display: block; padding: 10px 16px; border-radius: 999px; color: var(--ink); white-space: nowrap; }
+  .seg input:checked + span { background: var(--midi); color: var(--on-midi); }
+  .seg input:focus-visible + span { outline: 3px solid var(--voice); outline-offset: 2px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font: 500 0.95rem/1 var(--display); color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { display: inline-block; }
+  .legend .l-voice { width: 26px; height: 0; border-top: 3px solid var(--voice); border-radius: 3px; }
+  .legend .l-midi { width: 22px; height: 12px; background: var(--midi); border-radius: 3px; }
+  #roll { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; line-height: 0; }
+  #roll svg { display: block; width: 100%; height: auto; }
+  #roll .grid { stroke: var(--rule); stroke-width: 1; }
+  #roll .row-black { fill: var(--row-black); }
+  #roll .key { fill: var(--ink); }
+  #roll .keylabel { fill: var(--muted); font: 600 11px var(--display); }
+  #roll .trace { fill: none; stroke: var(--voice); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  #roll .blk { fill: var(--midi); }
+  #roll .blkt { fill: var(--on-midi); font: 700 11px var(--display); }
+  #roll .blockg { transition: transform .45s cubic-bezier(.25,.9,.3,1); }
+  #roll .head { stroke: var(--ink); stroke-width: 1.5; }
+  @media (prefers-reduced-motion: reduce) { #roll .blockg { transition: none; } }
+  .roll figcaption { margin-top: 12px; font-size: 1rem; color: var(--muted); max-width: 46rem; }
+
+  /* ---------- sections ---------- */
+  section.block { padding: clamp(40px, 6vw, 80px) 0; border-top: 1px solid var(--rule); }
+  section.block > .wrap > h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); font-weight: 750; font-stretch: 85%; line-height: 1.05; max-width: 20em; text-wrap: balance; }
+  .intro { max-width: 40rem; color: var(--muted); margin: 0.9em 0 0; }
+
+  /* tracks, laid out like DAW track headers */
+  .tracks { list-style: none; margin: clamp(24px, 4vw, 40px) 0 0; padding: 0; border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; background: var(--surface); }
+  .track { display: grid; grid-template-columns: minmax(170px, 230px) 1fr; border-top: 1px solid var(--rule); }
+  .track:first-child { border-top: 0; }
+  .th { padding: 20px 20px 20px 22px; background: color-mix(in srgb, var(--c) 9%, var(--surface)); border-left: 6px solid var(--c); }
+  .th h3 { font-size: 1.25rem; font-weight: 700; font-stretch: 90%; }
+  .th p { margin: 4px 0 0; font: 500 0.92rem/1.3 var(--display); color: var(--muted); }
+  .tb { padding: 20px 24px; }
+  .tb p { margin: 0; max-width: 40rem; }
+  .tb p + p { margin-top: 8px; color: var(--muted); font-size: 1rem; }
+  .c-note { --c: var(--midi); } .c-expr { --c: var(--expr); } .c-perc { --c: var(--perc); }
+
+  /* download */
+  .dl { margin-top: clamp(24px, 4vw, 40px); display: grid; gap: 0; border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  .dl-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding: 20px 24px; border-top: 1px solid var(--rule); }
+  .dl-row:first-child { border-top: 0; }
+  .dl-row h3 { font-size: 1.3rem; font-weight: 700; font-stretch: 90%; }
+  .dl-row p { margin: 4px 0 0; color: var(--muted); font-size: 1rem; }
+  .small { font-size: 1rem; color: var(--muted); max-width: 44rem; margin-top: 18px; }
+  .install { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 32px; }
+  .install h3 { font-size: 1.15rem; font-weight: 700; font-stretch: 90%; margin-bottom: 6px; }
+  .install p { margin: 0 0 8px; }
+  pre, code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.86em; }
+  pre { margin: 8px 0 0; padding: 12px 14px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; line-height: 1.5; white-space: pre; }
+  :not(pre) > code { background: color-mix(in srgb, var(--midi) 10%, transparent); padding: 2px 6px; border-radius: 5px; }
+
+  /* steps are a real sequence, so they are numbered */
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: clamp(24px, 4vw, 40px) 0 0; display: grid; gap: 0; max-width: 46rem; }
+  .steps li { counter-increment: s; position: relative; padding: 0 0 26px 62px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--midi); color: var(--on-midi); font: 700 1.05rem/1 var(--display); }
+  .steps li::after { content: ""; position: absolute; left: 19px; top: 42px; bottom: 4px; width: 2px; background: var(--rule); }
+  .steps li:last-child { padding-bottom: 0; } .steps li:last-child::after { display: none; }
+  .steps strong { font: 650 1.1rem var(--display); display: block; margin-bottom: 2px; }
+
+  .status { max-width: 44rem; }
+  .status p { margin: 1em 0 0; }
+
+  details { border-top: 1px solid var(--rule); padding: 0; }
+  details:last-of-type { border-bottom: 1px solid var(--rule); }
+  summary { cursor: pointer; font: 650 1.12rem/1.3 var(--display); padding: 18px 40px 18px 0; list-style: none; position: relative; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; position: absolute; right: 6px; top: 14px; font: 500 1.6rem/1 var(--display); color: var(--midi); }
+  details[open] summary::after { content: "\2212"; }
+  details p { margin: 0 0 18px; max-width: 42rem; color: var(--muted); }
+  .faq { margin-top: clamp(20px, 3vw, 32px); max-width: 48rem; }
+
+  footer { border-top: 1px solid var(--rule); padding: 32px 0 56px; color: var(--muted); font-size: 0.98rem; }
+  footer p { margin: 0 0 8px; max-width: 46rem; }
+
+  @media (max-width: 560px) {
+    .top { flex-wrap: wrap; padding-bottom: 8px; }
+    .top nav { width: 100%; justify-content: flex-start; gap: 22px; }
+    .top nav .optional { display: none; }
+  }
+  @media (max-width: 700px) {
+    .track { grid-template-columns: 1fr; }
+    .th { border-left-width: 6px; padding-bottom: 12px; }
+    .tb { padding-top: 14px; }
+    .dl-row { grid-template-columns: 1fr; }
+    .dl-row .btn { justify-self: start; }
+    .seg span { padding: 9px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="mark" href="#top" id="top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="15" width="13" height="7" rx="2" fill="var(--midi)"/><path d="M3 18 C8 10 12 22 17 15 S25 8 29 11" fill="none" stroke="var(--voice)" stroke-width="2.6" stroke-linecap="round"/></svg>
+      VoxMidi
+    </a>
+    <nav aria-label="Sections">
+      <a class="optional" href="#features">What it does</a>
+      <a href="#get">Download</a>
+      <a href="#setup">FL Studio setup</a>
+      <a class="optional" href="#faq">Questions</a>
+      <a href="https://github.com/" data-gh="">Source</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="h1">
+      <h1 id="h1">Your voice, as a MIDI instrument.</h1>
+      <p class="lede">VoxMidi turns singing, humming and beatboxing into live notes, pitch bend, chords and drum hits. It is free, open source, and made for FL Studio on Windows and Mac.</p>
+      <div class="actions">
+        <a class="btn primary" href="#get">Download</a>
+        <a class="btn ghost" href="https://github.com/" data-gh="">Read the source</a>
+      </div>
+
+      <figure class="roll">
+        <div class="roll-head">
+          <fieldset class="snap">
+            <legend>Snap notes to</legend>
+            <div class="seg" id="seg">
+              <label><input type="radio" name="scale" value="chromatic"><span>Nothing</span></label>
+              <label><input type="radio" name="scale" value="major" checked><span>C major</span></label>
+              <label><input type="radio" name="scale" value="pent"><span>C minor pentatonic</span></label>
+            </div>
+          </fieldset>
+          <div class="legend" aria-hidden="true">
+            <span><i class="l-voice"></i>What you sang</span>
+            <span><i class="l-midi"></i>What VoxMidi plays</span>
+          </div>
+        </div>
+        <div id="roll" role="img" aria-label="A piano roll. A wavering line shows a sung melody. Blue blocks show the clean MIDI notes VoxMidi sends."></div>
+        <figcaption id="rollNote">One sung take, drawn as a piano roll. Change the scale and the line stays put while the notes move.</figcaption>
+        <noscript><p class="small">The interactive chart needs JavaScript.</p></noscript>
+      </figure>
+    </section>
+  </main>
+</div>
+
+<section class="block" id="features">
+  <div class="wrap">
+    <h2>Everything your voice can control</h2>
+    <p class="intro">Each part of the plugin works like a track in your session. Use one, or all of them at once.</p>
+    <ul class="tracks">
+      <li class="track c-note">
+        <div class="th"><h3>Melody</h3><p>Notes and velocity</p></div>
+        <div class="tb">
+          <p>Your pitch becomes MIDI notes roughly 30 ms after you start singing. A note starts only once your pitch has settled, so a scoop into the note or a wobble does not create extra notes.</p>
+          <p>Try the stickiness, pitch confidence and gate settings. Louder singing sends higher velocity.</p>
+        </div>
+      </li>
+      <li class="track c-note">
+        <div class="th"><h3>Scales and key</h3><p>Stay in tune</p></div>
+        <div class="tb">
+          <p>Fifteen scales plus a custom one, on any root note. Notes snap to the scale, which makes everything more forgiving. Sing a few notes and VoxMidi suggests the key you are in.</p>
+        </div>
+      </li>
+      <li class="track c-expr">
+        <div class="th"><h3>Pitch bend</h3><p>Slides and vibrato</p></div>
+        <div class="tb">
+          <p>IntelliBend holds the note until you really bend away from it. TruBend follows every move your voice makes. A moving pitch becomes a bend, and a pitch that stays somewhere new becomes a new note.</p>
+          <p>Set the bend range to match your synth, from 1 to 24 semitones.</p>
+        </div>
+      </li>
+      <li class="track c-note">
+        <div class="th"><h3>Chords</h3><p>Own MIDI channel</p></div>
+        <div class="tb">
+          <p>Sing one note and get a chord: triads and sevenths that follow your scale, power chords, octaves, sus2, sus4, major and minor. Chords go out on a separate channel, so melody and chords can drive different instruments.</p>
+        </div>
+      </li>
+      <li class="track c-perc">
+        <div class="th"><h3>Beatbox</h3><p>Eight drum pads</p></div>
+        <div class="tb">
+          <p>Train each pad with your own sounds: a kick, a snare, a hat, a click or a clap. Hit it six to ten times and VoxMidi learns what it sounds like. In tests, hits fired about 7 ms after the sound.</p>
+          <p>Sounds that match no pad are ignored, so a sung note does not set off a drum.</p>
+        </div>
+      </li>
+      <li class="track c-expr">
+        <div class="th"><h3>Vowels and loudness</h3><p>Controller data</p></div>
+        <div class="tb">
+          <p>The vowels "ah", "ee" and "oo" become controller values on CC 20, 21 and 22, and loudness goes to CC 23. Map them to filter cutoff, vibrato depth or anything else your synth can learn. You can re-learn the vowels for your own voice.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="block" id="get">
+  <div class="wrap">
+    <h2>Download VoxMidi</h2>
+    <p class="intro">Free to use and share. Every download is built by GitHub from the public source code.</p>
+    <div class="dl">
+      <div class="dl-row">
+        <div><h3>Windows</h3><p>Two VST3 plugins and a standalone app.</p></div>
+        <a class="btn primary" href="https://github.com/" data-gh="/releases/latest/download/VoxMidi-Windows.zip">Download for Windows</a>
+      </div>
+      <div class="dl-row">
+        <div><h3>macOS</h3><p>VST3, AU and a standalone app. One build for Intel and Apple Silicon.</p></div>
+        <a class="btn primary" href="https://github.com/" data-gh="/releases/latest/download/VoxMidi-macOS.zip">Download for Mac</a>
+      </div>
+    </div>
+    <p class="small">There are two plugins. <strong>VoxMidi</strong> is an instrument that listens to your microphone itself, and is the one to use in FL Studio. <strong>VoxMidi FX</strong> is an effect that takes audio from a mixer insert, for hosts that pass MIDI out of effects. Looking for something else? See <a href="https://github.com/" data-gh="/releases">all releases</a>, including Linux.</p>
+
+    <div class="install">
+      <div>
+        <h3>Install on Windows</h3>
+        <p>Unzip, then copy both <code>.vst3</code> folders to:</p>
+        <pre>C:\Program Files\Common Files\VST3</pre>
+      </div>
+      <div>
+        <h3>Install on Mac</h3>
+        <p>Unzip, copy the plugins to <code>/Library/Audio/Plug-Ins/VST3</code>, then clear the download quarantine in Terminal:</p>
+        <pre>xattr -dr com.apple.quarantine \
+  "/Library/Audio/Plug-Ins/VST3/VoxMidi.vst3"</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="setup">
+  <div class="wrap">
+    <h2>Set it up in FL Studio</h2>
+    <ol class="steps">
+      <li><strong>Scan for the plugin</strong>Open Options, then Manage plugins, then Find plugins. Make sure your VST3 folder is in the list.</li>
+      <li><strong>Add VoxMidi to the Channel rack</strong>Set Audio source to "Direct", then press "Audio input..." and pick your microphone. Sing, and the note display and level bar should react.</li>
+      <li><strong>Send its MIDI out</strong>Open the plugin's wrapper settings (the gear icon), go to the Settings tab, and under MIDI set the Output port to 1.</li>
+      <li><strong>Add the synth you want to play</strong>In that synth's wrapper settings, set the Input port to 1 as well.</li>
+      <li><strong>Match the bend range</strong>Set the synth's pitch bend range to the same number as VoxMidi's Bend range (2 by default). Now sing.</li>
+    </ol>
+    <p class="small">FL Studio's manual describes matching port numbers for plugin MIDI, but does not list exact steps for plugin-to-plugin routing. If a menu looks different in your version, the idea is the same: use the same port number for MIDI out and MIDI in.</p>
+    <p class="small"><strong>Plan B for any DAW:</strong> run the standalone app, choose your microphone, and pick a MIDI output. On Mac, turn on the built-in IAC Driver. On Windows, install the free loopMIDI and select its port. Then enable that port as a MIDI input in your DAW.</p>
+  </div>
+</section>
+
+<section class="block" id="status">
+  <div class="wrap">
+    <h2>Where it stands</h2>
+    <div class="status">
+    <p>VoxMidi is a new project. The engine is tested against synthetic voices and drums at 44.1, 48 and 96 kHz, and the plugins build automatically for Windows and Mac. Real voices are messier than test signals, so expect to adjust stickiness, pitch confidence and the gate until it feels right for you.</p>
+    <p>Found something that does not work? <a href="https://github.com/" data-gh="/issues">Open an issue</a> and tell us your DAW, operating system and microphone.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq">
+  <div class="wrap">
+    <h2>Questions</h2>
+    <div class="faq">
+      <details><summary>Is it really free?</summary><p>Yes. VoxMidi is free software under the GNU AGPL v3. You can use it, share it, and change it. If you share a changed version, you share its source code too.</p></details>
+      <details><summary>Do I need a special microphone?</summary><p>No. Any microphone works. A dynamic microphone, like the common stage vocal mics, picks up less room noise, which helps note tracking.</p></details>
+      <details><summary>Does it work outside FL Studio?</summary><p>Yes. It is a VST3 plugin, and on Mac also an AU. Any host that passes MIDI out of a plugin can use it. For every other case, use the standalone app with a virtual MIDI port.</p></details>
+      <details><summary>Is this Dubler?</summary><p>No. VoxMidi is an independent project built around the same idea of playing MIDI with your voice. It shares no code with Dubler and is not affiliated with Vochlea.</p></details>
+      <details><summary>How fast is it?</summary><p>In our tests a sung note starts about 30 ms after you begin, and a trained drum sound fires about 7 ms after the hit. Lowering stickiness makes notes start sooner; raising it ignores more wobble.</p></details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>VoxMidi is free software, released under the GNU Affero General Public License v3. See the <a href="https://github.com/" data-gh="">source on GitHub</a>.</p>
+    <p>Built with <a href="https://juce.com">JUCE</a>. VST is a trademark of Steinberg Media Technologies GmbH.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // ---- point every link at this site's own repository (works on username.github.io/repo) ----
+  const host = location.hostname.match(/^(.+)\.github\.io$/i);
+  const repo = location.pathname.split('/')[1];
+  if (host && repo) {
+    const base = `https://github.com/${host[1]}/${repo}`;
+    document.querySelectorAll('[data-gh]').forEach(a => { a.href = base + a.dataset.gh; });
+  }
+
+  // ---- the piano roll ----
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const noteName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
+  const BLACK = new Set([1, 3, 6, 8, 10]);
+  const SCALES = { chromatic: null, major: [0,2,4,5,7,9,11], pent: [0,3,5,7,10] };
+  const LABEL = { chromatic: 'with no scale, so every semitone is allowed', major: 'to C major', pent: 'to C minor pentatonic' };
+  const LOW = 57, HIGH = 73, ROWS = HIGH - LOW, TOTAL = 7.6;
+
+  // One sung take: start, end (s), pitch as sung (MIDI, fractional), scoop, vibrato depth (semitones)
+  const SEGS = [
+    { s: 0.30, e: 1.20, p: 64.35, scoop: 1.3, vib: 0.00 },
+    { s: 1.35, e: 2.00, p: 67.40, scoop: 0.0, vib: 0.15 },
+    { s: 2.15, e: 3.20, p: 69.20, scoop: 0.0, vib: 0.35 },
+    { s: 3.35, e: 3.90, p: 66.45, scoop: 0.0, vib: 0.10 },
+    { s: 4.05, e: 4.80, p: 64.60, scoop: 0.0, vib: 0.10 },
+    { s: 4.95, e: 5.60, p: 62.30, scoop: 0.0, vib: 0.15 },
+    { s: 5.70, e: 7.20, p: 60.40, scoop: 0.0, vib: 0.40 },
+  ];
+  const sung = (g, t) => {
+    const d = t - g.s;
+    return g.p - (g.scoop ? g.scoop * Math.exp(-d / 0.07) : 0) + g.vib * Math.sin(2 * Math.PI * 5.6 * d) * Math.min(1, d / 0.4);
+  };
+  const snap = (p, set) => {
+    if (!set) return Math.round(p);
+    let best = Math.round(p), bd = 99;
+    for (let n = Math.floor(p) - 6; n <= Math.floor(p) + 7; n++) {
+      if (!set.includes(((n % 12) + 12) % 12)) continue;
+      const d = Math.abs(p - n);
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best;
+  };
+
+  const mount = document.getElementById('roll');
+  const caption = document.getElementById('rollNote');
+  const seg = document.getElementById('seg');
+  const mode = () => seg.querySelector('input:checked').value;
+  let blocks = [], rowH = 0, padT = 8, setClip = () => {}, started = false;
+
+  const el = (name, attrs, parent) => {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const rowY = n => padT + (HIGH - 1 - n) * rowH + 1.5;
+
+  function place() {
+    const set = SCALES[mode()];
+    blocks.forEach(b => {
+      const n = snap(b.seg.p, set);
+      b.g.style.transform = `translateY(${rowY(n)}px)`;
+      if (b.text) b.text.textContent = noteName(n);
+    });
+  }
+
+  function render(animate) {
+    const W = Math.max(300, Math.round(mount.clientWidth));
+    const H = W < 560 ? 300 : 330;
+    const gut = 40, padR = 12, padB = 8;
+    const plotW = W - gut - padR;
+    rowH = (H - padT - padB) / ROWS;
+    const X = t => gut + (t / TOTAL) * plotW;
+    const Yc = p => padT + (HIGH - 1 - p + 0.5) * rowH;
+
+    mount.textContent = '';
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, 'aria-hidden': 'true' }, mount);
+    const defs = el('defs', {}, svg);
+    const clip = el('clipPath', { id: 'reveal' }, defs);
+    const clipRect = el('rect', { x: 0, y: 0, width: W, height: H }, clip);
+
+    // piano-roll rows, keyboard strip, second lines
+    for (let n = LOW; n < HIGH; n++) {
+      const y = padT + (HIGH - 1 - n) * rowH;
+      if (BLACK.has(n % 12)) {
+        el('rect', { class: 'row-black', x: gut, y, width: plotW + padR, height: rowH }, svg);
+        el('rect', { class: 'key', x: 0, y: y + 1, width: gut * 0.6, height: rowH - 2, rx: 2 }, svg);
+      }
+      if (n % 12 === 0) el('text', { class: 'keylabel', x: gut - 5, y: y + rowH * 0.72, 'text-anchor': 'end' }, svg).textContent = noteName(n);
+    }
+    for (let t = 0; t <= Math.floor(TOTAL); t++) el('line', { class: 'grid', x1: X(t), x2: X(t), y1: padT, y2: H - padB }, svg);
+
+    const live = el('g', { 'clip-path': 'url(#reveal)' }, svg);
+    // blocks first, so the sung line draws on top
+    blocks = SEGS.map(s => {
+      const bs = s.s + 0.035 + (s.scoop ? 0.08 : 0);   // notes start once the pitch has settled
+      const be = s.e + 0.045;
+      const g = el('g', { class: 'blockg' }, live);
+      const w = X(be) - X(bs);
+      el('rect', { class: 'blk', x: X(bs), y: 0, width: w, height: rowH - 3, rx: 3 }, g);
+      const text = w > 34 ? el('text', { class: 'blkt', x: X(bs) + 6, y: rowH * 0.7 }, g) : null;
+      return { g, text, seg: s };
+    });
+    SEGS.forEach(s => {
+      let d = '';
+      for (let t = s.s; t <= s.e + 0.0001; t += 0.01) d += (d ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Yc(sung(s, t)).toFixed(1);
+      el('path', { class: 'trace', d }, live);
+    });
+    const head = el('line', { class: 'head', x1: gut, x2: gut, y1: padT, y2: H - padB, opacity: 0 }, svg);
+
+    setClip = k => {
+      const x = gut + k * plotW;
+      clipRect.setAttribute('width', x + 2);
+      head.setAttribute('x1', x); head.setAttribute('x2', x);
+      head.setAttribute('opacity', k > 0 && k < 1 ? 1 : 0);
+    };
+
+    // place blocks without animating the first position
+    blocks.forEach(b => { b.g.style.transition = 'none'; });
+    place();
+    void mount.offsetWidth;
+    blocks.forEach(b => { b.g.style.transition = ''; });
+
+    if (animate && !reduce) {
+      setClip(0);
+      const t0 = performance.now(), D = 3400;
+      const tick = now => { const k = Math.min(1, (now - t0) / D); setClip(k); if (k < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    } else {
+      setClip(1);
+    }
+  }
+
+  seg.addEventListener('change', () => {
+    place();
+    const m = mode();
+    caption.textContent = `The same sung take, snapped ${LABEL[m]}. The line is what you sang; the blocks are the MIDI notes.`;
+  });
+
+  render(true);
+  let timer;
+  new ResizeObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (started) render(false); started = true; }, 120);
+  }).observe(mount);
+})();
+</script>
+</body>
+</html>
